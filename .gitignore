@@ -1,0 +1,22 @@
+# Build outputs
+mac/build/
+mac/dist/
+windows/out/
+windows/dist/
+windows/**/bin/
+windows/**/obj/
+
+# Binaries and installers (these go on GitHub Releases)
+*.saver
+*.scr
+*.dmg
+*.zip
+*.exe
+*.pdb
+
+# Editor and OS files
+.DS_Store
+xcuserdata/
+*.xcuserstate
+.vscode/
+.idea/

@@ -1,0 +1,59 @@
+Samay — install instructions (Windows)
+==========================================
+
+Samay is a kinetic clock screensaver. Twenty-four small dials whose
+hands turn together to spell out the current time, every minute.
+Inspired by ClockClock 24 by Humans Since 1982. Not affiliated, not
+for sale.
+
+
+How to install (one minute)
+---------------------------
+
+1. Extract this ZIP. You should now see "Samay.scr" sitting in a folder.
+
+2. Right-click "Samay.scr" → choose "Install".
+
+   Windows opens the Screen Saver settings dialog with Samay selected
+   automatically.
+
+3. Click "Settings..." in that dialog to choose a theme, motion, and
+   time format. Click "Preview" to see it run.
+
+4. Hit OK. Samay runs whenever your machine sits idle.
+
+
+First-run security warning
+--------------------------
+
+If Windows says "Windows protected your PC" when you try to install:
+
+   1. Click "More info" (small text at the top of the dialog).
+   2. Click "Run anyway".
+
+This happens because Samay isn't signed with a code-signing
+certificate. Windows shows the warning once, then trusts the file.
+
+
+System requirements
+-------------------
+
+- Windows 10 or 11, 64-bit.
+- Microsoft Edge / WebView2 runtime (preinstalled on every Windows 10/11
+  machine since 2021 — nothing extra to install).
+
+
+To uninstall
+------------
+
+Right-click "Samay.scr" wherever you saved it → Delete. Or, if you
+already installed it system-wide, open Settings → Personalization →
+Lock screen → Screen saver → switch to a different screensaver, then
+delete the file.
+
+
+Source
+------
+
+Shared to show the work. All rights reserved. Please ask before
+reusing any of it.

@@ -1,0 +1,598 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Samay</title>
+<style>
+  /*
+    Samay, the clock page. The Windows screensaver embeds this file in a
+    WebView2 and injects window.__cc_theme, window.__cc_motion and
+    window.__cc_format24. web/index.html is a copy for any browser. The
+    Mac screensaver draws the same design natively (mac/sources).
+    Every theme has its own day and night palette, swapped at 6 AM and
+    8 PM local time.
+  */
+
+  :root {
+    --panel:         #FFFFFF;
+    --recess-floor:  #FFFFFF;
+    --hand:          #0A0A0A;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--panel);
+    overflow: hidden;
+    user-select: none;
+    cursor: none;
+    transition: background-color 1.2s ease;
+  }
+
+  #stage {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #panel {
+    width: 900px;
+    height: 400px;
+    box-sizing: border-box;
+    padding: 55px;
+    display: grid;
+    grid-template-columns: repeat(8, 90px);
+    grid-template-rows: repeat(3, 90px);
+    column-gap: 10px;
+    row-gap: 10px;
+    transform-origin: center center;
+  }
+
+  .clock {
+    position: relative;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: var(--recess-floor);
+    box-shadow: inset var(--shadow-x, 4px) var(--shadow-y, 5px)
+                      var(--shadow-blur, 7px) var(--shadow-color, rgba(0,0,0,0.22));
+    overflow: hidden;
+    transition: background-color 1.2s ease, box-shadow 0.4s ease;
+  }
+
+  /*
+    Hand pivot model: .hand is a zero-size point at the dial centre with
+    transform-origin:0 0. The shaft is a plain rectangle starting AT the
+    pivot — no curve, no tail behind. When two opposing hands meet, the
+    rectangles share the pivot exactly and the line is seamless. The hub
+    matches the hand width, so the line keeps uniform thickness through
+    the centre — invisible inside a straight line, but cleans up corner
+    joins (⌐, ¬, └, ┘ shapes). The boxes around the hand and the hub are
+    whole pixels, centred on the pivot: a box at a fractional offset gets
+    snapped to the pixel grid, which left opposite hands half a pixel
+    out of line.
+  */
+  .hand {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+  .hand svg {
+    position: absolute;
+    display: block;
+    overflow: visible;
+  }
+  .hand .stroke {
+    fill: var(--hand);
+    transition: fill 1.2s ease;
+  }
+  .hub {
+    position: absolute;
+    left: calc(50% - 3px);
+    top: calc(50% - 3px);
+    width: 6px;
+    height: 6px;
+    overflow: visible;
+    fill: var(--hand);
+    pointer-events: none;
+    z-index: 3;
+    transition: fill 1.2s ease;
+  }
+</style>
+</head>
+<body>
+<div id="stage"><div id="panel"></div></div>
+<script>
+const HOUR_LEN = 45.0;
+const MIN_LEN  = 45.0;
+const HAND_W   = 5.4;
+const HAND_R   = HAND_W / 2;
+const BOX      = 2 * Math.ceil(HAND_R);   // whole-pixel box around the hand, centred on the pivot
+
+function handSVG(length) {
+  const w = length;
+  const h = HAND_W;
+  return `
+    <svg width="${w}" height="${BOX}" viewBox="0 ${-BOX / 2} ${w} ${BOX}"
+         style="left:0; top:${-BOX / 2}px;">
+      <rect class="stroke" x="0" y="${-HAND_R}" width="${w}" height="${h}" />
+    </svg>
+  `;
+}
+
+const panel = document.getElementById('panel');
+for (let i = 0; i < 24; i++) {
+  const col = Math.floor(i / 3) + 1;
+  const row = (i % 3) + 1;
+  const c = document.createElement('div');
+  c.className = 'clock clock--' + i;
+  c.style.gridColumn = col;
+  c.style.gridRow    = row;
+  c.innerHTML = `
+    <div class="hand small">${handSVG(HOUR_LEN)}</div>
+    <div class="hand large">${handSVG(MIN_LEN)}</div>
+    <svg class="hub" viewBox="-3 -3 6 6"><circle r="${HAND_R}" /></svg>
+  `;
+  panel.appendChild(c);
+}
+
+/* Themes — every theme has a day and a night palette, swapped at 6 AM /
+   8 PM local time. */
+const THEMES = {
+  studio:    { day:   { panel:'#FFFFFF', floor:'#FFFFFF', hand:'#0A0A0A' },
+               night: { panel:'#E8E8E8', floor:'#DEDEDE', hand:'#0A0A0A' } },
+  blossom:   { day:   { panel:'#F768A0', floor:'#FACDE5', hand:'#E0218A' },
+               night: { panel:'#3E0F25', floor:'#5C1A3A', hand:'#FACDE5' } },
+  bone:      { day:   { panel:'#F2EBDF', floor:'#FBF1D8', hand:'#3A2A1B' },
+               night: { panel:'#3D3022', floor:'#2A2117', hand:'#F0E2C2' } },
+  porcelain: { day:   { panel:'#F8F8F8', floor:'#FEFEFE', hand:'#1B2840' },
+               night: { panel:'#1B2840', floor:'#101A2C', hand:'#E8ECF5' } },
+  linen:     { day:   { panel:'#EDE7DC', floor:'#F4EAD0', hand:'#2D2D2D' },
+               night: { panel:'#3A3530', floor:'#2A2622', hand:'#EDE7DC' } },
+  sand:      { day:   { panel:'#D9C2A6', floor:'#E8D2B0', hand:'#2A1A10' },
+               night: { panel:'#3E2E1A', floor:'#2A1F12', hand:'#D9C2A6' } },
+  sage:      { day:   { panel:'#A4B3A0', floor:'#BCCAB8', hand:'#1F2A1A' },
+               night: { panel:'#2C3A26', floor:'#1A2418', hand:'#BCCAB8' } },
+  slate:     { day:   { panel:'#B0B5BA', floor:'#C8CCD0', hand:'#1B1F23' },
+               night: { panel:'#2E3236', floor:'#1F2226', hand:'#C8CCD0' } },
+  charcoal:  { day:   { panel:'#52555A', floor:'#62656A', hand:'#EDE6D6' },
+               night: { panel:'#2A2C2E', floor:'#1A1C1E', hand:'#EDE6D6' } },
+  midnight:  { day:   { panel:'#26262C', floor:'#3A3A40', hand:'#EDE6D6' },
+               night: { panel:'#0A0A0E', floor:'#18181C', hand:'#EDE6D6' } },
+};
+
+function activeVariant(hour24) {
+  return (hour24 >= 6 && hour24 < 20) ? 'day' : 'night';
+}
+function applyTheme(themeId, hour24) {
+  const theme = THEMES[themeId] || THEMES.studio;
+  const t = theme[activeVariant(hour24)];
+  const r = document.documentElement.style;
+  r.setProperty('--panel',        t.panel);
+  r.setProperty('--recess-floor', t.floor);
+  r.setProperty('--hand',         t.hand);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────────
+   Motion engine
+
+   Angles are clock degrees: 0 = 12 o'clock, 90 = 3, 180 = 6, 270 = 9,
+   growing clockwise. Every hand keeps a running (unwrapped) angle, so a
+   hand can turn several times in one move.
+
+   Nothing here waits on timers. A move is written down as a "track" per
+   hand: a start angle plus a chain of timed turns. The angle on screen is
+   always worked out from the track and the clock, never read back from
+   the page. A new move simply replaces every track, starting from where
+   the old track says each hand is right now. So a new minute (or a new
+   mode) can land at any moment without leftovers.
+   ───────────────────────────────────────────────────────────────────── */
+
+/* Glyphs. Each digit is 3 rows × 2 dials, and each dial lists its two
+   hands. Strokes run between dial centres: a line from one dial to its
+   neighbour is one hand from each. A stroke that ends inside a dial is
+   both hands laid on top of each other. A dial has only two hands, so
+   it can't draw a T: where a digit needs one (3, 4, 6, 8, 9), one arm
+   becomes a short stub that points at the missing join, which the eye
+   fills in. Dials a digit doesn't use rest at half past seven, both
+   hands together. */
+const UP = 0, RIGHT = 90, DOWN = 180, LEFT = 270, REST = 225;
+const DIAL_REST = [REST, REST];
+const GLYPHS = [
+  /* 0 */ [[[RIGHT, DOWN], [LEFT, DOWN]],
+           [[UP,    DOWN], [UP,   DOWN]],
+           [[UP,   RIGHT], [UP,   LEFT]]],
+  /* 1 */ [[DIAL_REST,     [DOWN, DOWN]],
+           [DIAL_REST,     [UP,   DOWN]],
+           [DIAL_REST,     [UP,     UP]]],
+  /* 2 */ [[[RIGHT, RIGHT], [LEFT, DOWN]],
+           [[RIGHT,  DOWN], [UP,   LEFT]],
+           [[UP,    RIGHT], [LEFT, LEFT]]],
+  /* 3 */ [[[RIGHT, RIGHT], [LEFT, DOWN]],
+           [[RIGHT, RIGHT], [LEFT, DOWN]],
+           [[RIGHT, RIGHT], [UP,   LEFT]]],
+  /* 4 */ [[[DOWN,   DOWN], [DOWN, DOWN]],
+           [[UP,    RIGHT], [LEFT, DOWN]],
+           [DIAL_REST,      [UP,     UP]]],
+  /* 5 */ [[[RIGHT,  DOWN], [LEFT, LEFT]],
+           [[UP,    RIGHT], [LEFT, DOWN]],
+           [[RIGHT, RIGHT], [UP,   LEFT]]],
+  /* 6 */ [[[RIGHT,  DOWN], [LEFT, LEFT]],
+           [[UP,     DOWN], [LEFT, DOWN]],
+           [[UP,    RIGHT], [UP,   LEFT]]],
+  /* 7 */ [[[RIGHT, RIGHT], [LEFT, DOWN]],
+           [DIAL_REST,      [UP,   DOWN]],
+           [DIAL_REST,      [UP,     UP]]],
+  /* 8 */ [[[RIGHT,  DOWN], [LEFT, DOWN]],
+           [[RIGHT,  DOWN], [LEFT, DOWN]],
+           [[UP,    RIGHT], [UP,   LEFT]]],
+  /* 9 */ [[[RIGHT,  DOWN], [LEFT, DOWN]],
+           [[UP,    RIGHT], [UP,   DOWN]],
+           [[RIGHT, RIGHT], [UP,   LEFT]]],
+];
+
+/* Dial i sits in column floor(i / 3), row i % 3 (see the panel build
+   above). Digit k owns columns 2k and 2k + 1. */
+function poseFor(digits) {
+  const pose = [];
+  for (let i = 0; i < 24; i++) {
+    const col = Math.floor(i / 3), row = i % 3;
+    const glyph = GLYPHS[+digits.charAt(col >> 1)] || GLYPHS[0];
+    pose.push(glyph[row][col & 1]);
+  }
+  return pose;
+}
+
+/* One easing for every turn: a symmetric ease-in-out. The Mac build uses
+   the same control points, so both feel the same. */
+const EASE = [0.6, 0.0, 0.4, 1.0];
+function bezierEase(p) {
+  if (p <= 0) return 0;
+  if (p >= 1) return 1;
+  const [x1, y1, x2, y2] = EASE;
+  const cx = 3 * x1, bx = 3 * (x2 - x1) - cx, ax = 1 - cx - bx;
+  const cy = 3 * y1, by = 3 * (y2 - y1) - cy, ay = 1 - cy - by;
+  let u = p;                                   // solve x(u) = p
+  for (let k = 0; k < 8; k++) {
+    const x = ((ax * u + bx) * u + cx) * u - p;
+    const dx = (3 * ax * u + 2 * bx) * u + cx;
+    if (Math.abs(x) < 1e-6 || Math.abs(dx) < 1e-6) break;
+    u -= x / dx;
+  }
+  u = Math.min(1, Math.max(0, u));
+  return ((ay * u + by) * u + cy) * u;
+}
+
+const wrap360 = a => ((a % 360) + 360) % 360;
+/* Signed turn from a to b. Forward = clockwise, in [0, 360). */
+const forward  = (a, b) => wrap360(b - a);
+/* Backward = anticlockwise, in (-360, 0]. */
+const backward = (a, b) => { const f = forward(a, b); return f === 0 ? 0 : f - 360; };
+const nearest  = (a, b, tieSign = 1) => {
+  const f = forward(a, b);
+  if (f === 180) return 180 * tieSign;
+  return f < 180 ? f : f - 360;
+};
+
+/* A track: where the hand starts, then turns {t0, t1, a0, a1}. A turn
+   marked `out` eases out only (see moveTo). */
+function makeTrack(start) { return { start, turns: [] }; }
+function trackEnd(track) {
+  const n = track.turns.length;
+  return n ? track.turns[n - 1].a1 : track.start;
+}
+function angleOn(track, t) {
+  let a = track.start;
+  for (const turn of track.turns) {
+    if (t <= turn.t0) return a;
+    if (t < turn.t1) {
+      const p = (t - turn.t0) / (turn.t1 - turn.t0);
+      return turn.a0 + (turn.a1 - turn.a0) * (turn.out ? 1 - (1 - p) * (1 - p) : bezierEase(p));
+    }
+    a = turn.a1;
+  }
+  return a;
+}
+
+/* Small helper to write a track: wait, turn, wait, turn ... */
+class Route {
+  constructor(angle, t) { this.angle = angle; this.t = t; this.track = makeTrack(angle); }
+  wait(ms) { this.t += ms; return this; }
+  turn(delta, ms) {
+    if (delta !== 0) {
+      this.track.turns.push({ t0: this.t, t1: this.t + ms, a0: this.angle, a1: this.angle + delta });
+      this.angle += delta;
+    }
+    this.t += ms;
+    return this;
+  }
+}
+
+/* Which hand takes which of a dial's two target angles: the pairing that
+   moves the hands least. Lines look the same either way round. */
+function pairUp(from, to) {
+  const cost = (a, b) => Math.abs(nearest(a, b));
+  const straight = cost(from[0], to[0]) + cost(from[1], to[1]);
+  const crossed  = cost(from[0], to[1]) + cost(from[1], to[0]);
+  return crossed < straight ? [to[1], to[0]] : [to[0], to[1]];
+}
+
+/* Choreographies. Each returns, per dial, a Route for each hand. All
+   times are in ms from the start of the move. Every mode lands well
+   inside the minute (see MODE_LENGTH). */
+const MOTION = {
+  /* Waves: every column gathers into one shared pose (a diagonal line
+     through each dial), spins it a full turn, then opens into the time.
+     Columns start one after another, so the panel ripples left to right. */
+  waves: { stagger: 450, gather: 5000, hold: 400, spin: 5000, settle: 6000 },
+  /* Lazy: only dials whose digit changed move, the short way round. */
+  lazy:  { stagger: 400, move: 13000 },
+  /* Fun: every hand makes an extra full turn on the way. The two hands of
+     a dial go opposite ways, and neighbouring dials mirror each other, so
+     the panel turns like a set of gears. Starts in the middle. */
+  fun:   { stagger: 220, move: 15000, extraTurns: 1 },
+};
+const WAVE_POSE = [45, 225];
+
+function planDial(mode, i, from, target) {
+  const col = Math.floor(i / 3), row = i % 3;
+  const goal = pairUp(from, target);
+  const routes = [new Route(from[0], 0), new Route(from[1], 0)];
+
+  if (mode === 'lazy') {
+    const m = MOTION.lazy;
+    const moved = nearest(from[0], goal[0]) !== 0 || nearest(from[1], goal[1]) !== 0;
+    if (!moved) return routes;
+    routes.forEach((r, k) => {
+      r.wait(col * m.stagger).turn(nearest(r.angle, goal[k], k ? -1 : 1), m.move);
+    });
+    return routes;
+  }
+
+  if (mode === 'fun') {
+    const m = MOTION.fun;
+    const delay = Math.abs(col - 3.5) * m.stagger + row * 60;
+    const spin = ((col + row) % 2 === 0) ? 1 : -1;
+    routes.forEach((r, k) => {
+      const dir = k === 0 ? spin : -spin;
+      const base = dir > 0 ? forward(r.angle, goal[k]) : backward(r.angle, goal[k]);
+      r.wait(delay).turn(base + dir * 360 * m.extraTurns, m.move);
+    });
+    return routes;
+  }
+
+  /* waves */
+  const m = MOTION.waves;
+  const line = pairUp(from, WAVE_POSE);
+  routes.forEach((r, k) => {
+    r.wait(col * m.stagger)
+     .turn(nearest(r.angle, line[k], k ? -1 : 1), m.gather)
+     .wait(m.hold)
+     .turn(360, m.spin)
+     .wait(m.hold);
+  });
+  const settle = pairUp([routes[0].angle, routes[1].angle], target);
+  routes.forEach((r, k) => r.turn(nearest(r.angle, settle[k], k ? -1 : 1), m.settle));
+  return routes;
+}
+
+/* Longest any mode can run, for the "lands within the minute" promise. */
+function modeLength(mode) {
+  if (mode === 'lazy') return 7 * MOTION.lazy.stagger + MOTION.lazy.move;
+  if (mode === 'fun')  return 3.5 * MOTION.fun.stagger + 2 * 60 + MOTION.fun.move;
+  const m = MOTION.waves;
+  return 7 * m.stagger + m.gather + 2 * m.hold + m.spin + m.settle;
+}
+
+/* ── State: one track per hand (dial i → hands 2i and 2i + 1) ─────── */
+const handEls = [];
+document.querySelectorAll('.clock').forEach(c => {
+  handEls.push(c.querySelector('.hand.small'), c.querySelector('.hand.large'));
+});
+const tracks = handEls.map(() => makeTrack(REST));
+let motionEndsAt = 0;
+
+/* Animation time. A test hook can freeze it to draw any frame. */
+let frozenAt = null;
+const animNow = () => (frozenAt !== null ? frozenAt : performance.now());
+
+/* A new move can start while the hands are still turning (a new mode,
+   or the 12/24-hour switch). Stopping them dead would look like a
+   stutter, so every turning hand first coasts on at its current speed
+   and slows to a stop over COAST ms; the new plan starts from there. */
+const COAST = 600;
+
+function moveTo(digits, mode) {
+  const now = animNow();
+  const pose = poseFor(digits);
+  const at = tracks.map(tr => angleOn(tr, now));
+  const speed = tracks.map(tr => (angleOn(tr, now + 1) - angleOn(tr, now - 1)) / 2);  // deg per ms
+  const coast = speed.some(v => Math.abs(v) > 1e-4) ? COAST : 0;
+  const t0 = now + coast;
+  const end = at.map((a, h) => a + speed[h] * coast / 2);
+  for (let i = 0; i < 24; i++) {
+    // Where each hand will be when the move starts, wrapped so numbers stay small.
+    const from = [wrap360(end[2 * i]), wrap360(end[2 * i + 1])];
+    const routes = planDial(mode, i, from, pose[i]);
+    routes.forEach((r, k) => {
+      const h = 2 * i + k;
+      const shift = end[h] - from[k];            // keep the angle continuous
+      const tr = makeTrack(at[h]);
+      if (end[h] !== at[h]) tr.turns.push({ t0: now, t1: t0, a0: at[h], a1: end[h], out: true });
+      r.track.turns.forEach(turn => tr.turns.push({
+        t0: turn.t0 + t0, t1: turn.t1 + t0, a0: turn.a0 + shift, a1: turn.a1 + shift,
+      }));
+      tracks[h] = tr;
+    });
+  }
+  motionEndsAt = t0 + modeLength(mode) + 50;
+  wake();
+}
+
+function placeAt(digits) {
+  const pose = poseFor(digits);
+  for (let i = 0; i < 24; i++) {
+    tracks[2 * i] = makeTrack(pose[i][0]);
+    tracks[2 * i + 1] = makeTrack(pose[i][1]);
+  }
+  motionEndsAt = 0;
+  draw();
+}
+
+/* Drawing. The hand graphic points to 3 o'clock, so subtract 90. */
+function draw() {
+  const t = animNow();
+  for (let h = 0; h < handEls.length; h++) {
+    const a = angleOn(tracks[h], t) - 90;
+    handEls[h].style.transform = 'rotate(' + a.toFixed(3) + 'deg)';
+  }
+}
+let frameId = 0;
+function frame() {
+  frameId = 0;
+  draw();
+  if (frozenAt === null && animNow() < motionEndsAt) frameId = requestAnimationFrame(frame);
+}
+function wake() { if (!frameId) frameId = requestAnimationFrame(frame); }
+
+/* Sun / moon directional shadow (6→18 sun east-to-west, 18→6 moon). */
+function sunShadow(hour24) {
+  const isDay = (hour24 >= 6 && hour24 < 18);
+  const t = isDay
+    ? (hour24 - 6) / 12
+    : ((hour24 - 18 + 24) % 24) / 12;
+  const horizontalRatio = 1 - 2 * t;
+  const x = horizontalRatio * 4.5;
+  const alpha = isDay ? 0.24 : 0.18;
+  return {
+    x:     x.toFixed(2) + 'px',
+    y:     '5px',
+    blur:  '7px',
+    color: 'rgba(0,0,0,' + alpha + ')'
+  };
+}
+function applySunShadow(hour24) {
+  const s = sunShadow(hour24);
+  const r = document.documentElement.style;
+  r.setProperty('--shadow-x',     s.x);
+  r.setProperty('--shadow-y',     s.y);
+  r.setProperty('--shadow-blur',  s.blur);
+  r.setProperty('--shadow-color', s.color);
+}
+
+/* Settings. The screensaver hosts set window.__cc_theme, __cc_motion and
+   __cc_format24 before the page runs. In a plain browser, the URL can
+   set them too: index.html?theme=blossom&motion=fun&h24=1 */
+(function readUrl() {
+  const q = new URLSearchParams(location.search);
+  if (q.get('theme'))  window.__cc_theme  = q.get('theme');
+  if (q.get('motion')) window.__cc_motion = q.get('motion');
+  if (q.has('h24'))    window.__cc_format24 = q.get('h24') !== '0';
+})();
+const MODES = ['waves', 'lazy', 'fun'];
+const currentMode = () => (MODES.includes(window.__cc_motion) ? window.__cc_motion : 'waves');
+
+/* Wall-clock time. A test hook can pin it. */
+let pinnedDate = null;
+const wallNow = () => (pinnedDate ? new Date(pinnedDate) : new Date());
+const hourOf = d => d.getHours() + d.getMinutes() / 60;
+
+function currentTimeStr() {
+  const d = wallNow();
+  let h = d.getHours();
+  const m = d.getMinutes();
+  if (!window.__cc_format24) { h = h % 12; if (h === 0) h = 12; }
+  return String(h).padStart(2,'0') + String(m).padStart(2,'0');
+}
+
+let shownTime, shownMode, manual = false;
+function tick() {
+  const h = hourOf(wallNow());
+  applyTheme(window.__cc_theme || 'studio', h);
+  applySunShadow(h);
+  if (manual) return;
+  const t = currentTimeStr();
+  const mode = currentMode();
+  if (t !== shownTime || mode !== shownMode) {
+    shownTime = t;
+    shownMode = mode;
+    moveTo(t, mode);
+  }
+}
+
+function primeNow() {
+  const h = hourOf(wallNow());
+  applyTheme(window.__cc_theme || 'studio', h);
+  applySunShadow(h);
+  shownTime = currentTimeStr();
+  shownMode = currentMode();
+  placeAt(shownTime);
+}
+
+primeNow();
+setInterval(tick, 500);
+
+/* In a browser: T changes the theme, M the motion, F the 12/24-hour format. */
+document.addEventListener('keydown', e => {
+  const key = e.key.toLowerCase();
+  if (key === 't') {
+    const ids = Object.keys(THEMES);
+    window.__cc_theme = ids[(ids.indexOf(window.__cc_theme || 'studio') + 1) % ids.length];
+  } else if (key === 'm') {
+    window.__cc_motion = MODES[(MODES.indexOf(currentMode()) + 1) % MODES.length];
+  } else if (key === 'f') {
+    window.__cc_format24 = !window.__cc_format24;
+  } else return;
+  tick();
+});
+
+/* In the Windows screensaver the page sits in a WebView2 and gets the
+   keyboard and mouse, not the host window. Pass any input on, so the host
+   can end the screensaver (it ignores this in the Settings preview). */
+if (window.chrome && window.chrome.webview) {
+  const host = window.chrome.webview;
+  const exit = () => host.postMessage('exit');
+  let firstMove = null;
+  ['keydown', 'mousedown', 'wheel', 'touchstart'].forEach(type => addEventListener(type, exit, true));
+  addEventListener('mousemove', e => {
+    if (!firstMove) { firstMove = [e.screenX, e.screenY]; return; }   // can fire on show
+    if (Math.abs(e.screenX - firstMove[0]) > 5 || Math.abs(e.screenY - firstMove[1]) > 5) exit();
+  }, true);
+}
+
+/* Test hook, used by the screenshot scripts. Not used by the hosts. */
+window.__samay = {
+  pinTime(iso) { pinnedDate = iso ? new Date(iso) : null; tick(); },
+  freeze(ms) { frozenAt = ms; draw(); },
+  thaw() { frozenAt = null; wake(); },
+  now: animNow,
+  show(digits) { manual = true; placeAt(digits); },
+  play(digits, mode) { manual = true; moveTo(digits, mode || currentMode()); return modeLength(mode || currentMode()); },
+  theme(id, hour24) { window.__cc_theme = id; applyTheme(id, hour24); applySunShadow(hour24); },
+  draw,
+  angles: () => tracks.map(tr => wrap360(angleOn(tr, animNow()))),
+  modeLength,
+};
+
+function fit() {
+  const W = window.innerWidth;
+  const H = window.innerHeight;
+  const margin = Math.min(W, H) * 0.04;
+  const sx = (W - margin * 2) / 900;
+  const sy = (H - margin * 2) / 400;
+  panel.style.transform = 'scale(' + Math.min(sx, sy) + ')';
+}
+fit();
+window.addEventListener('resize', fit);
+</script>
+</body>
+</html>

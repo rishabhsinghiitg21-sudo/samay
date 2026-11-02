@@ -1,0 +1,58 @@
+Samay — install instructions
+================================
+
+Samay is a kinetic clock screensaver. Twenty-four small dials whose
+hands turn together to spell out the current time, every minute.
+Inspired by ClockClock 24 by Humans Since 1982. Not affiliated, not
+for sale.
+
+
+How to install (one minute)
+---------------------------
+
+You should already have this DMG mounted (the window with the Samay
+icon and this README).
+
+1. Open the Terminal app.
+
+       Spotlight (⌘ Space) → type "Terminal" → press Return.
+
+2. Copy and paste this single line into Terminal, then press Return:
+
+       cp -R /Volumes/Samay/Samay.saver ~/Library/Screen\ Savers/ && xattr -dr com.apple.quarantine ~/Library/Screen\ Savers/Samay.saver && open "x-apple.systempreferences:com.apple.WallpaperSettings"
+
+   (Triple-click the line to select it all, then ⌘C to copy.)
+
+3. System Settings opens to the Wallpaper panel. Scroll to the "Other"
+   section, click Samay, then click "Options..." to choose a theme,
+   motion, and time format.
+
+That's it. You can now eject the DMG (drag it to the Trash).
+
+
+Why does this need Terminal?
+----------------------------
+
+Apple's Gatekeeper blocks "unidentified developer" screensavers from
+loading on macOS Sequoia and later, with no in-UI override available
+for the .saver bundle type. The `xattr` command in the line above
+removes the "downloaded from the internet" flag so macOS will trust
+the bundle. It's a one-time step per install.
+
+The build is not signed with an Apple Developer ID or notarised. If a
+future version is, this step goes away and a double-click will do.
+
+
+To uninstall
+------------
+
+In Terminal:
+
+       rm -rf ~/Library/Screen\ Savers/Samay.saver
+
+
+Source
+------
+
+Shared to show the work. All rights reserved. Please ask before
+reusing any of it.
